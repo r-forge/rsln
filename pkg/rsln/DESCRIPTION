@@ -1,0 +1,9 @@
+Package: rsln
+Version: 0.0-1
+Date: 2010-04-20
+Title: A package to generate and fit regime-switching lognormal data
+Author: Brian Hartman <bhartman@stat.tamu.edu>
+Maintainer: Brian Hartman <bhartman@stat.tamu.edu>
+Description: Regime-switching models are prominently used in actuarial science and risk management. There is not a lot of information or direction on how to optimally estimate the posterior distribution of the model parameters. This package implements various Bayesian methods to generate draws from those distributions. This allows us to compare the accuracy and efficiency of various algorithms. Most importantly, this package enables practitioners and academics to spend less time fitting the model and more time investigating the questions they are actually interested in.
+License: GPL (>= 2)
+URL: rsln.r-forge.r-project.org
