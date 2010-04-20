@@ -2,7 +2,10 @@ rm(list=ls(all=TRUE))
 
 rsln.gen <- function(ndata,nregimes,mean.vec=rep(0,nregimes),prec.vec=rep(1,nregimes),trans.mat=matrix(1/nregimes,nregimes,nregimes)){
 	#Error Checking
-	if(length(mean.vec)!=nregimes)
+	if(length(mean.vec)!=nregimes) stop("Length of mean vector must equal number of regimes")
+	if(length(prec.vec)!=nregimes) stop("Length of precision vector must equal number of regimes")
+	if(!is.matrix(trans.mat)) stop("Transition matrix must be a matrix")
+	if(sum(dim(trans.mat)!=nregimes)>0) stop("Dimension of transition matrix must be RxR (R is the number of regimes)")
 	reg.values <- numeric(ndata)
 	reg.values[1] <- sample.int(nregimes,1,prob=get.stationary.dist(trans.mat))
 	for(i in 2:ndata) reg.values[i] <- sample.int(nregimes,1,prob=trans.mat[reg.values[i-1],])
@@ -37,23 +40,28 @@ sample.regime.ssu <- function(nregimes,mu.vector,tau.vector,pi.matrix,dat,curren
 	out[ndat] <- sample.int(nregimes,1,prob=dnorm(dat[ndat],mu.vector,1/sqrt(tau.vector))*pi.matrix[out[ndat-1],])
 	out
 }
-sample.regime.ffbs <- function(nregimes,mu.vector,tau.vector,pi.matrix,dat,current.x,ndat=length(dat)){
+sample.regime.ffbs <- function(nregimes,mu.vector,tau.vector,current.pi,dat,current.x,ndat=length(dat)){
 	ck <- numeric(ndat)
 	phi.mat <- matrix(NA,ndat,nregimes)
-	phi.temp <- get.stationary.dist(pi.matrix)
+	phi.temp <- get.stationary.dist(current.pi)
 	beta.mat <- matrix(NA,ndat,nregimes)
 	out <- numeric(ndat)
 	for(i in 1:ndat){
 		ck[i] <- sum(phi.temp*dnorm(dat[i],mu.vector,1/sqrt(tau.vector)))
 		phi.mat[i,] <- phi.temp*dnorm(dat[i],mu.vector,1/sqrt(tau.vector))/ck[i]
-		phi.temp <- apply(phi.mat[i,]*t(pi.matrix),2,sum)
+		phi.temp <- apply(phi.mat[i,]*t(current.pi),2,sum)
 	}
-	beta.mat[ndat,] <- 1/ck[ndat]
+	out[ndat] <- sample.int(nregimes,1,prob=phi.mat[ndat,])
 	for(i in ((ndat-1):1)){
-		beta.mat[i,] <- (1/ck[i])*apply(pi.matrix*dnorm(dat[i+1],mu.vector,1/sqrt(tau.vector))*beta.mat[i+1,],2,sum)
-		out[i] <- sample.int(nregimes,1,prob=phi.mat[i,]*beta.mat[i,])
+		temp <- phi.mat[i,]*current.pi[,out[i+1]]
+		out[i] <- sample.int(nregimes,1,prob=temp)
 	}
-	out[ndat] <- sample.int(nregimes,1,prob=pi.matrix[out[ndat-1],]*dnorm(dat[ndat],mu.vector,1/sqrt(tau.vector))*beta.mat[ndat,])
+	#beta.mat[ndat,] <- 1/ck[ndat]
+	#for(i in ((ndat-1):1)){
+	#	beta.mat[i,] <- (1/ck[i])*apply(pi.matrix*dnorm(dat[i+1],mu.vector,1/sqrt(tau.vector))*beta.mat[i+1,],2,sum)
+	#	out[i] <- sample.int(nregimes,1,prob=phi.mat[i,]*beta.mat[i,])
+	#}
+	#out[ndat] <- sample.int(nregimes,1,prob=pi.matrix[out[ndat-1],]*dnorm(dat[ndat],mu.vector,1/sqrt(tau.vector))*beta.mat[ndat,])
 	out
 }
 rsln.fit <- function(data.values,nregimes,burnin=1000,ndraws=1000,prior.mu=0,prior.n=0.001,prior.alpha=1000,prior.beta=0.001,prior.dirichlet=matrix(1,nregimes,nregimes),pi.start=matrix(1/nregimes,nregimes,nregimes)){
@@ -90,12 +98,12 @@ rsln.fit <- function(data.values,nregimes,burnin=1000,ndraws=1000,prior.mu=0,pri
 			mu.mat[rp,i] <- reg.param.out[1]
 			tau.mat[rp,i] <- reg.param.out[2]
 		}
-		x.mat[rp,] <- sample.regime.ffbs(nregimes,mu.mat[rp,],tau.mat[rp,],current.pi,dat,x.mat[rp,])
+		if(rp!=ndraws) x.mat[rp+1,] <- sample.regime.ffbs(nregimes,mu.mat[rp,],tau.mat[rp,],current.pi,dat,x.mat[rp,])
 	}
 	list(regime.mat=x.mat,mu.mat=mu.mat,tau.mat=tau.mat,sig2=1/tau.mat,pi.mat=pi.mat)
 }
 init.values <- function(){
-	nregimes <<- 4
+	nregimes <<- 2
 	data.values <<- rsln.gen(100,nregimes)$data.values
 	burnin<<-1000
 	ndraws<<-1000
@@ -107,5 +115,6 @@ init.values <- function(){
 	pi.start<<-matrix(1/nregimes,nregimes,nregimes)
 }
 
-init.values()
-data.rsln <- rsln.gen(100,3,c(1,3))
+#init.values()
+data.rsln <- rsln.gen(100,3,c(1,-1,3))
+system.time(my.fit <- rsln.fit(data.rsln$data.values,2))
